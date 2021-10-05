@@ -1,5 +1,5 @@
 import { inject, injectable } from "tsyringe";
-import { hash } from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 
 import { CreateUserError } from "./CreateUserError";
 
@@ -20,7 +20,7 @@ export class CreateUserUseCase {
       throw new CreateUserError();
     }
 
-    const passwordHash = await hash(password, 8);
+    const passwordHash = await bcrypt.hash(password, 8);
 
     const user = await this.usersRepository.create({
       email,
