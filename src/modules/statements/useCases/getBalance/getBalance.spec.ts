@@ -59,7 +59,7 @@ describe("#GetBalance", () => {
       expect(result.balance).toBe(50);
     });
 
-    it("should  not get balance given a id of an not registered user", async () => {
+    it("should not get balance given a id of an not registered user", async () => {
       const result = getBalanceUseCase.execute({
         user_id: "any_id",
       });

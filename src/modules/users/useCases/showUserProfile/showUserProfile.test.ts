@@ -1,23 +1,24 @@
+import "dotenv/config";
+import { sign } from "jsonwebtoken";
 import {
   Connection,
-  createConnection,
-  getRepository,
   Repository,
   getConnectionOptions,
+  getRepository,
+  createConnection,
 } from "typeorm";
-import { hash } from "bcryptjs";
+
+import config from "../../../../config/auth";
 import request from "supertest";
 
 import { User } from "../../entities/User";
-import { app } from "../../../../app";
 import { ICreateUserDTO } from "../createUser/ICreateUserDTO";
+import { app } from "../../../../app";
 
-describe("#AuthenticateUseCase integration", () => {
+describe("#ShowUserProfile integration", () => {
   let connection: Connection;
   let userRepository: Repository<User>;
   let defaultUser: ICreateUserDTO;
-
-  const passwordWithoutHash = "123";
 
   beforeAll(async () => {
     const defaultOptions = await getConnectionOptions();
@@ -40,7 +41,7 @@ describe("#AuthenticateUseCase integration", () => {
     defaultUser = {
       email: "email@gmail.com",
       name: "any_name",
-      password: await hash(passwordWithoutHash, 8),
+      password: "any_password",
     };
 
     const userInstance = userRepository.create({ ...defaultUser });
@@ -51,56 +52,39 @@ describe("#AuthenticateUseCase integration", () => {
     await connection.close();
   });
 
-  test("should authenticate a user given valid credentials", async () => {
-    const reqParams = {
-      email: defaultUser.email,
-      password: passwordWithoutHash,
-    };
+  it("should get the profile data of an authenticate user", async () => {
+    const jwt = sign(defaultUser, config.jwt.secret);
 
     const response = await request(app)
-      .post("/api/v1/sessions")
-      .send(reqParams)
+      .get("/api/v1/profile")
+      .set("authorization", `bearer ${jwt}`)
       .expect(200);
 
     const { body } = response;
 
-    expect(body.user).toEqual(
-      expect.objectContaining({
-        name: defaultUser.name,
-        email: defaultUser.email,
-      })
-    );
-
-    expect(body.user).not.toHaveProperty("password");
-
-    expect(body).toHaveProperty("token");
-  });
-
-  it("should not authenticate a user given  an invalid password", async () => {
-    const reqParams = {
+    const expectedData = {
+      name: defaultUser.name,
       email: defaultUser.email,
-      password: "invalid_password",
     };
 
-    const response = await request(app)
-      .post("/api/v1/sessions")
-      .send(reqParams)
-      .expect(401);
+    expect(body).toEqual(expect.objectContaining(expectedData));
+    expect(body).toHaveProperty("id");
+  });
+
+  it("should not get the profile data if missing the jwt", async () => {
+    const response = await request(app).get("/api/v1/profile").expect(401);
 
     const { body } = response;
 
     expect(body).toHaveProperty("message");
   });
 
-  it("should  not authenticate a user given an invalid email", async () => {
-    const reqParams = {
-      email: "invalid_@gmail.com",
-      password: passwordWithoutHash,
-    };
+  it("should not get the profile data given a invalid jwt", async () => {
+    const jwt = sign(defaultUser, "invalid_secret");
 
     const response = await request(app)
-      .post("/api/v1/sessions")
-      .send(reqParams)
+      .get("/api/v1/profile")
+      .set("authorization", `bearer ${jwt}`)
       .expect(401);
 
     const { body } = response;
